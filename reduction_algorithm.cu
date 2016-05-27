@@ -24,7 +24,8 @@ Vec3f newvecArray[MAX_VECTOR_COUNT];
 //forward declarations
 __global__ void reduce(Vec3f *input, Vec3f *output);
 
-int main(int argc, char** argv){
+int 
+main(int argc, char** argv){
 
 	vecArray[0].e[0] =   1.0; vecArray[0].e[1] =   2.0; vecArray[0].e[2] =   3.0;
 	vecArray[1].e[0] =   4.0; vecArray[1].e[1] =   5.0; vecArray[1].e[2] =   6.0;
@@ -47,7 +48,7 @@ int main(int argc, char** argv){
 	dim3 gridDim(1,1);
 	dim3 blockDim(5,1);
 
-	//Check verArray values going into kernel fcn
+	//Check verArray values going into kernel function
 	for (int i = 0 ; i < 5 ; i++){
 		for (int j = 0 ; j < 3 ; j ++)
 	        	printf("vecArray[%d][%d] = %.3f\n", j,i,vecArray[i].e[j]);
@@ -57,7 +58,7 @@ int main(int argc, char** argv){
 	//call the reduction function
 	reduce<<< gridDim, blockDim >>> ( ddata, dbuffer );
 
-	//ZERO out newvecArray just incase
+	//ZERO out newvecArray
     	memset(newvecArray, 0, MAX_VECTOR_COUNT * sizeof(Vec3f));
 	cudaMemcpy( newvecArray, dbuffer, MAX_VECTOR_COUNT * sizeof(Vec3f), cudaMemcpyDeviceToHost );
 	//Check to see if copied over to newvecArry
@@ -76,7 +77,8 @@ int main(int argc, char** argv){
 	return 0;
 }
 
-__global__ void reduce(Vec3f *input, Vec3f *output){
+__global__ void 
+reduce(Vec3f *input, Vec3f *output){
 	extern __shared__ Vec3f sdata[];
 
 	// each thread loadsome element from global to shared mem
@@ -105,10 +107,6 @@ __global__ void reduce(Vec3f *input, Vec3f *output){
 		}
 		__syncthreads();
 	}
-	//------------------------------------------------
-	//I'm not quite sure where the clipping function goes
-	//INTENSITY = max(0, min( >INSERT INTENSITY TO BE CLIPPED<, 255 ) );  //clipping function
-	//------------------------------------------------
 
 	// write result for this block to global mem
 	if(tid == 0) output[blockIdx.x] = sdata[0];
