@@ -1,0 +1,177 @@
+/**
+ * This demonstrates how pixels are written to dynamically allocated memory and 
+ * later applied with a sobel edge detector filter. Then it is written back to a file.
+ *
+ */
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+#include <math.h>
+
+void readImageDimension( FILE * fin, int * width, int * height )
+{
+    unsigned char pixel[3];
+
+    int fstatus;
+    fstatus = fread( width, 4, 1, fin );
+    assert( fstatus );
+    fstatus = fread( height, 4, 1, fin );
+    assert( fstatus );
+
+    printf("Image WxH = %dx%d\n", *width, *height );    
+}
+
+void readImagePixels( FILE * fin, unsigned char pixels[], int width, int height )
+{
+    size_t count = 0;
+    const size_t MAX_PIXEL_COUNT = width * height;
+
+    
+    for( ; !feof(fin) && count < MAX_PIXEL_COUNT; ++count )
+    {
+        int fstatus = fread( pixels+count*3, 1, 3, fin );
+	
+       // if( fstatus != 3 ){
+         //   fprintf( stderr, "Cannot read pixel. File could be corrupted!" );
+           // exit(1);
+        //}
+    }
+}
+
+void writeImage( FILE * fout, unsigned char pixels[], int width, int height)
+{
+    size_t count = 0;
+    const size_t MAX_PIXEL_COUNT = width * height;
+    int fstatus;
+
+    fstatus = fwrite( &width, 4, 1, fout );
+    fstatus = fwrite( &height, 4, 1, fout );
+    
+    for( ; count < MAX_PIXEL_COUNT; ++count )
+    {
+        fstatus = fwrite( pixels+count*3, 1, 3, fout );
+        // if( fstatus != 3 )
+        //{
+        //   fprintf( stderr, "Cannot write pixel to file");
+        //   exit(1);
+        //}
+   }
+}
+
+
+int main(int argc, char** argv)
+{
+    char * filein = argv[1];
+    char * fileout = argv[2];
+    unsigned char * pixels = NULL;
+    int width, height;
+    
+    switch(argc)
+    {
+        case 3:
+            break;
+        default:
+            fprintf(stderr, "Usage: <file-in> <file-out>\n");
+            fprintf(stderr, "\n\n");
+       return 1;
+    }
+
+  //Read pixels from input file.
+  FILE * fin = fopen( filein, "rb");
+  readImageDimension(fin, &width, &height);
+  pixels = malloc(width*height*3);
+  assert(pixels);
+  readImagePixels(fin, pixels, width, height);
+  fclose(fin);
+
+	int i = 0;
+	int counter =0;
+	int slots = (height*width*2);
+	int position[slots];
+	int centerval[slots];
+
+	for(; i<width*height; i++)
+	{
+	  	pixels[counter] = (pixels[counter] + pixels[counter+1] + pixels[counter+2])/3;
+		  pixels[counter+1] = pixels[counter];
+		  pixels[counter+2] = pixels[counter];
+		  counter += 3;
+	}
+
+	int sobel_x[3][3] = {{-1,0,1},{-2,0,2},{-1,0,1}};
+	int sobel_y[3][3] = {-1,-2,-1,0,0,0,1,2,1};
+	int col, m, poscount, poscount2 = 0;
+	int B[9];
+	
+	for(; col < width; col++)
+	{
+	  	int row = 0;
+  		for(; row < height; row++)
+	  	{
+		    	int k=0;
+    			for(; k<3; k++)
+		    	{
+				    int r = 0;
+				    for(; r<3; r++)
+				    {
+								if(m >= 9)
+					      {
+						        m=0;
+						        int Gx = (B[0]*sobel_x[0][0])+(B[1]*sobel_x[0][1])+(B[2]*sobel_x[0][2])+(B[3]*sobel_x[1][0])+(B[4]*sobel_x[1][1])+(B[5]*sobel_x[1][2])+(B[6]*sobel_x[2][0])+(B[7]*sobel_x[2][1])+(B[8]*sobel_x[2][2]);
+						        int Gy = (B[0]*sobel_y[0][0])+(B[1]*sobel_y[0][1])+(B[2]*sobel_y[0][2])+(B[3]*sobel_y[1][0])+(B[4]*sobel_y[1][1])+(B[5]*sobel_y[1][2])+(B[6]*sobel_y[2][0])+(B[7]*sobel_y[2][1])+(B[8]*sobel_y[2][2]);
+
+					        	double squaredG = (Gx*Gx)+(Gy*Gy);
+				        		double G = sqrt(squaredG);
+					        	centerval[poscount2] = G;
+					        	poscount2++;
+					      }
+				      	else if(m == 4 && (poscount < (height*width)))
+					      {
+					        	int value = ((width*col) + row + (height*k) + r)*3;
+						        position[poscount] = value;
+						        poscount++;
+					      }
+					      B[m] = pixels[((width*col) + row + (height*k) + r)*3];			// multiply by 3 to skip R G B
+					      m++;
+			
+					      if(poscount2 >= ((width-2)*height))
+					      {
+						        break;
+				        }
+				    }
+			
+			    	if(poscount2 >= ((width-2)*height))
+				  	{
+						    break;
+					  }
+			    }
+			
+			    if(poscount2 >= ((width-2)*height))
+					{
+					  	break;
+					}
+		  }
+
+		  if(poscount2 >= ((width-2)*height))
+			{
+			  	break;
+			}
+	}
+
+	int q, y, z = 0;
+	for(; z < ((width-2)*(height-2)); z++)
+	{
+	  	y = position[z];
+	  	q = centerval[z];
+  		pixels[y] = q;
+	  	pixels[y+1] = q;
+	  	pixels[y+2] = q;
+	}
+
+  //Write pixels to output file.
+  FILE * fout = fopen(fileout, "wb");
+
+  writeImage( fout, pixels, width, height );
+  fclose( fout );
+  free( pixels );
+}
